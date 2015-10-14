@@ -86,11 +86,9 @@ DOW=$($DATE_BIN +%u)
 #The calendar day of the month
 DOM=$($DATE_BIN +%d)
 #We need 'NOW' to be constant during execution, we set it here.
-NOW=$($DATE_BIN +%Y%m%d-%H)
-CUR_HOUR=$($DATE_BIN +%H)
+NOW=$($DATE_BIN +%Y%m%d)
 if [ "$USE_UTC" = "1" ] ; then
-	NOW=$($DATE_BIN -u +%Y%m%d-%H)
-	CUR_HOUR=$($DATE_BIN -u +%H)
+	NOW=$($DATE_BIN -u +%Y%m%d)
 fi
 
 #Find the backup type (DAILY|WEEKLY|MONTHY)
@@ -108,21 +106,18 @@ if [ $QUIET != "1" ] ; then
     echo "Starting $BK_TYPE backups..."
 fi
 
-# remove space from the field delimiters that are used in the for loops
-# this allows to backup directory names with spaces
-OLD_IFS=$IFS
-IFS=$(echo -en "\n\b")
-
+DIRS=""
 for dir in $(cat $PATHS) ; do
-	$TARSNAP_BIN -c -f $NOW-$BK_TYPE-$(hostname -s)-$(echo $dir) --one-file-system -C / $dir
-	if [ $? = 0 ] ; then
-	    if [ $QUIET != "1" ] ; then
-		echo "$NOW-$BK_TYPE-$(hostname -s)-$(echo $dir) backup done."
-	    fi
-	else
-		echo "$NOW-$BK_TYPE-$(hostname -s)-$(echo $dir) backup error. Exiting" ; exit $?
-	fi
+	DIRS="$DIRS \"$dir\""
 done	
+$TARSNAP_BIN -c -f $NOW-$BK_TYPE --one-file-system -C / $DIRS
+if [ $? = 0 ] ; then
+    if [ $QUIET != "1" ] ; then
+	echo "$NOW-$BK_TYPE backup done."
+    fi
+else
+	echo "$NOW-$BK_TYPE backup error. Exiting" ; exit $?
+fi
 
 
 #Check to make sure the last set of backups are OK.
@@ -132,20 +127,18 @@ fi
 
 archive_list=$($TARSNAP_BIN --list-archives)
 
-for dir in $(cat $PATHS) ; do
-	case "$archive_list" in
-		*"$NOW-$BK_TYPE-$(hostname -s)-$(echo $dir)"* )
-		if [ $QUIET != "1" ] ; then
-		    echo "$NOW-$BK_TYPE-$(hostname -s)-$(echo $dir) backup OK."
-		fi ;;
-		* ) echo "$NOW-$BK_TYPE-$(hostname -s)-$(echo $dir) backup NOT OK. Check --archive-list."; exit 3 ;; 
-	esac
-done
+case "$archive_list" in
+	*"$NOW-$BK_TYPE"* )
+	if [ $QUIET != "1" ] ; then
+	    echo "$NOW-$BK_TYPE backup OK."
+	fi ;;
+	* ) echo "$NOW-$BK_TYPE backup NOT OK. Check --list-archives."; exit 3 ;; 
+esac
 
 #Delete old backups
-DAILY_DELETE_TIME=$($DATE_BIN -d"-$DAILY_CNT day" +%Y%m%d-%H)
-WEEKLY_DELETE_TIME=$($DATE_BIN -d"-$WEEKLY_CNT week" +%Y%m%d-%H)
-MONTHLY_DELETE_TIME=$($DATE_BIN -d"-$MONTHLY_CNT month" +%Y%m%d-%H)
+DAILY_DELETE_TIME=$($DATE_BIN -d"-$DAILY_CNT day" +%Y%m%d)
+WEEKLY_DELETE_TIME=$($DATE_BIN -d"-$WEEKLY_CNT week" +%Y%m%d)
+MONTHLY_DELETE_TIME=$($DATE_BIN -d"-$MONTHLY_CNT month" +%Y%m%d)
 
 if [ $QUIET != "1" ] ; then
     echo "Finding backups to be deleted."
@@ -211,9 +204,6 @@ if [ $BK_TYPE = "MONTHLY" ] ; then
                 esac
         done
 fi
-
-# restore old IFS value
-IFS=$OLD_IFS
 
 if [ $QUIET != "1" ] ; then
     echo "$0 done"
