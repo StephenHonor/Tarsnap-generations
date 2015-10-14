@@ -108,7 +108,7 @@ fi
 
 DIRS=""
 for dir in $(cat $PATHS) ; do
-	DIRS="$DIRS \"$dir\""
+	DIRS="$DIRS $dir"
 done	
 $TARSNAP_BIN -c -f $NOW-$BK_TYPE --one-file-system -C / $DIRS
 if [ $? = 0 ] ; then
